@@ -1,0 +1,13 @@
+/* Minimal reset. The cockpit injects all of its own styling via <Style/>. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #efeae0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
