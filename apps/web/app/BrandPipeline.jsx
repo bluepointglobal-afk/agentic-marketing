@@ -5,12 +5,15 @@ import {
   LayoutDashboard, Plus, Sparkles, Search, PenTool, ShieldCheck, Send,
   Play, Check, X, ChevronRight, ChevronLeft, Clock, Hash, Globe, Mail,
   Instagram, Twitter, FileText, BarChart3, Image as ImageIcon, Loader2,
-  CircleCheck, CircleX, Megaphone,
+  CircleCheck, CircleX, Megaphone, Music2,
 } from "lucide-react";
 import {
-  apiListBrands, apiCreateBrand, apiGetBrand,
+  apiListBrands, apiCreateBrand, apiGetBrand, apiUpdateBrand,
   apiStartRun, apiGetRun, apiApprove, apiReject, mapRun,
 } from "./api-client";
+
+// Cockpit channel -> Blotato platform key (blog/email aren't Blotato platforms).
+const BLOTATO_PLATFORM = { instagram: "instagram", x: "twitter", tiktok: "tiktok" };
 
 /*
  * Brand pipeline cockpit — front end only.
@@ -30,6 +33,7 @@ const CHANNELS = [
   { id: "blog", label: "Blog", icon: Globe },
   { id: "instagram", label: "Instagram", icon: Instagram },
   { id: "x", label: "X", icon: Twitter },
+  { id: "tiktok", label: "TikTok", icon: Music2 },
   { id: "email", label: "Email", icon: Mail },
 ];
 
@@ -426,6 +430,9 @@ function BrandConsole({ brand, onBack, onLog }) {
               </div>
               <h3 className="draft-title">{run.draft.title}</h3>
               <p className="draft-meta"><FileText size={12} /> {run.draft.meta}</p>
+              {run.draft.imageUrl && (
+                <img className="draft-image" src={run.draft.imageUrl} alt={run.draft.title} />
+              )}
               <p className="draft-body">{run.draft.body}</p>
               <div className="chip-row">
                 {run.draft.keywords.map((k) => <span key={k} className="chip-mini"><Hash size={11} /> {k}</span>)}
@@ -447,15 +454,16 @@ function BrandConsole({ brand, onBack, onLog }) {
               <p className="muted">Working through the pipeline…</p>
             </div>
           ) : (
-            <div className="card config">
-              <div className="card-label">Configuration</div>
-              <ConfigRow k="Audience" v={brand.audience} />
-              <ConfigRow k="Cadence" v={brand.cadence} />
-              <ConfigRow k="Channels" v={brand.channels.join(", ")} />
-              <ConfigRow k="Images" v={brand.imageModel === "gpt-image-2" ? "GPT Image 2" : "Nano Banana"} />
-              <ConfigRow k="Publish" v={publishLabel(brand.publishTarget)} />
-              <ConfigRow k="Voice gate" v={`${brand.gateThreshold} min`} />
-            </div>
+            <>
+              <div className="card config">
+                <div className="card-label">Configuration</div>
+                <ConfigRow k="Audience" v={brand.audience} />
+                <ConfigRow k="Cadence" v={brand.cadence} />
+                <ConfigRow k="Images" v={brand.imageModel === "gpt-image-2" ? "GPT Image 2" : "Nano Banana"} />
+                <ConfigRow k="Voice gate" v={`${brand.gateThreshold} min`} />
+              </div>
+              <PublishingEditor brand={brand} onSaved={(updated) => onLog(brand.id, updated)} />
+            </>
           )}
 
           <div className="card history">
@@ -495,6 +503,87 @@ function ConfigRow({ k, v }) {
     <div className="cfg-row">
       <span className="muted small">{k}</span>
       <span className="cfg-v">{v}</span>
+    </div>
+  );
+}
+
+// Edit a brand's channels, publish target, and per-channel Blotato account ids.
+function PublishingEditor({ brand, onSaved }) {
+  const [channels, setChannels] = useState(brand.channels || []);
+  const [publishTarget, setPublishTarget] = useState(brand.publishTarget || "draft");
+  const [accounts, setAccounts] = useState(brand.blotatoAccounts || {});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const toggleChannel = (id) =>
+    setChannels((cur) => (cur.includes(id) ? cur.filter((c) => c !== id) : [...cur, id]));
+  const setAccount = (platform, val) =>
+    setAccounts((a) => ({ ...a, [platform]: val }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const updated = await apiUpdateBrand(brand.id, {
+        channels, publishTarget, blotatoAccounts: accounts,
+      });
+      onSaved(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1600);
+    } catch (e) { /* leave the form as-is so the user can retry */ }
+    setSaving(false);
+  };
+
+  // Blotato-capable channels currently selected (instagram, x, tiktok).
+  const blotatoChannels = channels.filter((c) => BLOTATO_PLATFORM[c]);
+
+  return (
+    <div className="card config">
+      <div className="card-label">Channels &amp; publishing</div>
+
+      <div className="chip-row">
+        {CHANNELS.map((c) => {
+          const on = channels.includes(c.id);
+          const Icon = c.icon;
+          return (
+            <button key={c.id} className={`chip ${on ? "chip-active" : ""}`} onClick={() => toggleChannel(c.id)}>
+              <Icon size={14} /> {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="seg" style={{ marginTop: 12 }}>
+        {[["draft", "Draft"], ["blotato", "Blotato"], ["cms", "CMS"]].map(([v, l]) => (
+          <button key={v} className={`seg-btn ${publishTarget === v ? "on" : ""}`} onClick={() => setPublishTarget(v)}>{l}</button>
+        ))}
+      </div>
+
+      {publishTarget === "blotato" && (
+        <div style={{ marginTop: 12 }}>
+          <div className="field-hint">Blotato account ID per channel</div>
+          {blotatoChannels.length === 0 ? (
+            <p className="muted small">Select Instagram, X, or TikTok above to add account IDs.</p>
+          ) : (
+            blotatoChannels.map((c) => {
+              const platform = BLOTATO_PLATFORM[c];
+              const ch = CHANNELS.find((x) => x.id === c);
+              const Icon = ch?.icon || Globe;
+              return (
+                <div key={c} className="acct-row">
+                  <span className="acct-label"><Icon size={13} /> {ch?.label}</span>
+                  <input className="input acct-input" placeholder="account ID"
+                    value={accounts[platform] || ""}
+                    onChange={(e) => setAccount(platform, e.target.value)} />
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      <button className="btn btn-primary save-btn" disabled={saving} onClick={save}>
+        {saving ? "Saving…" : saved ? <><Check size={15} /> Saved</> : "Save settings"}
+      </button>
     </div>
   );
 }
@@ -674,10 +763,15 @@ function Style() {
 .cfg-row { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
 .cfg-row:last-child { border-bottom:none; }
 .cfg-v { font-size:13.5px; text-align:right; text-transform:capitalize; }
+.acct-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
+.acct-label { display:inline-flex; align-items:center; gap:5px; font-size:13px; width:96px; flex-shrink:0; color:var(--text); }
+.acct-input { flex:1; padding:7px 10px; font-size:13px; }
+.save-btn { margin-top:14px; width:100%; justify-content:center; }
 .draft .score-row { display:flex; align-items:baseline; gap:7px; margin-bottom:10px; }
 .score { font-family:'Fraunces',serif; font-size:34px; color:var(--accent); line-height:1; }
 .draft-title { font-family:'Fraunces',serif; font-size:18px; margin:0 0 6px; font-weight:500; }
 .draft-meta { display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--muted); margin:0 0 11px; }
+.draft-image { width:100%; border-radius:9px; border:1px solid var(--line); margin:0 0 12px; display:block; }
 .draft-body { font-size:13.5px; line-height:1.6; color:#384640; margin:0 0 13px; }
 .draft-actions { display:flex; gap:9px; margin-top:16px; }
 .draft-actions .btn { flex:1; justify-content:center; }

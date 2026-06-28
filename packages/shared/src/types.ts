@@ -5,7 +5,7 @@
  */
 
 /** Channel ids — from CHANNELS in the cockpit. */
-export type ChannelId = "blog" | "instagram" | "x" | "email";
+export type ChannelId = "blog" | "instagram" | "x" | "email" | "tiktok";
 
 /** Image provider — from the onboarding "Image model" segmented control. */
 export type ImageModel = "gpt-image-2" | "nano-banana";
@@ -53,6 +53,8 @@ export interface Draft {
   body: string;
   keywords: string[];
   score: number;
+  /** Generated creative (hosted or data URL); shown in the gate card. */
+  imageUrl?: string | null;
 }
 
 /** A single stage's live status within a run, for the cockpit rail. */
@@ -79,6 +81,12 @@ export interface Brand {
   cadence: Cadence;
   publishTarget: PublishTarget;
   gateThreshold: number;
+  /**
+   * Blotato connected-account ids, keyed by Blotato platform
+   * (tiktok | instagram | twitter | facebook). Server-side config, not shown
+   * in the cockpit. Used by the publish stage when publishTarget === "blotato".
+   */
+  blotatoAccounts?: Record<string, string>;
   /** Lightweight run summaries for the dashboard / history card. */
   runs: RunSummary[];
   createdAt?: string;

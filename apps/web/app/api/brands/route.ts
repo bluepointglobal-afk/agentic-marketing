@@ -53,6 +53,7 @@ export async function POST(req: Request): Promise<Response> {
         cadence: body.cadence ?? "weekly",
         publishTarget: body.publishTarget ?? "draft",
         gateThreshold: body.gateThreshold ?? 85,
+        blotatoAccounts: body.blotatoAccounts ?? {},
         // Never trust client-sent run history; runs are server-owned.
         $setOnInsert: { runs: [] },
       },

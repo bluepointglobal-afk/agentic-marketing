@@ -56,6 +56,8 @@ const BrandSchema = new Schema(
       default: "draft",
     },
     gateThreshold: { type: Number, default: 85 },
+    // Blotato account ids keyed by platform (tiktok/instagram/twitter/facebook).
+    blotatoAccounts: { type: Schema.Types.Mixed, default: {} },
     runs: { type: [RunSummarySchema], default: [] },
   },
   { timestamps: true, _id: false },
@@ -154,6 +156,8 @@ export function toBrand(doc: BrandDoc & Record<string, unknown>): Brand {
     cadence: doc.cadence as Cadence,
     publishTarget: doc.publishTarget as PublishTarget,
     gateThreshold: doc.gateThreshold,
+    blotatoAccounts:
+      (doc as { blotatoAccounts?: Record<string, string> }).blotatoAccounts ?? {},
     runs: (doc.runs ?? []).map((r) => ({
       id: r.id,
       at: r.at,
@@ -181,6 +185,7 @@ export function toRun(doc: RunDoc & Record<string, unknown>): Run {
         body: doc.draft.body ?? "",
         keywords: doc.draft.keywords ?? [],
         score: doc.draft.score ?? 0,
+        imageUrl: (doc.draft as { imageUrl?: string | null }).imageUrl ?? null,
       }
     : null;
 

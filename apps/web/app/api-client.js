@@ -29,6 +29,8 @@ export const apiListBrands = () => req("/api/brands");
 export const apiGetBrand = (id) => req(`/api/brands/${id}`);
 export const apiCreateBrand = (brand) =>
   req("/api/brands", { method: "POST", body: JSON.stringify(brand) });
+export const apiUpdateBrand = (id, patch) =>
+  req(`/api/brands/${id}`, { method: "PUT", body: JSON.stringify(patch) });
 
 /* ── runs ── */
 export const apiStartRun = (brandId) =>

@@ -24,7 +24,8 @@ const BRANDS = [
     dos: "wonder, warmth, family, memories, bedtime, learning, imagination, values, personalised, beautiful, gentle, meaningful, illustrated, gift-worthy, child-safe",
     nevers:
       "cold AI jargon, aggressive hype, generic content-creation language, overpromising, complex technical explanations, dark themes, cynical tone, low-quality template language",
-    channels: ["blog", "instagram", "email"],
+    // TikTok-only push for a safe (private) first test; add instagram/x to go public.
+    channels: ["blog", "tiktok", "email"],
     keywords: [
       "personalised children's book",
       "custom storybook",
@@ -37,10 +38,13 @@ const BRANDS = [
       "AI story generator",
       "storybook maker",
     ],
-    imageModel: "nano-banana",
+    // Should be "nano-banana" (consistent characters) once that provider is
+    // wired; using gpt-image-2 for now so creatives generate and TikTok can post.
+    imageModel: "gpt-image-2",
     cadence: "weekly",
-    publishTarget: "draft",
+    publishTarget: "blotato",
     gateThreshold: 85,
+    blotatoAccounts: { tiktok: "43756", instagram: "49063", twitter: "19067" },
     runs: [],
   },
   {
@@ -55,7 +59,8 @@ const BRANDS = [
     dos: "warmth, clarity, seriousness, dignity, compatibility, trust, privacy, intention, emotional maturity, deen, family, practical guidance",
     nevers:
       "hype, manipulation, cringe romance, casual dating language, excessive slang, fear-mongering, judgmental religious tone, pickup culture, vague self-help clichés, overpromising marriage outcomes",
-    channels: ["blog", "instagram", "email"],
+    // TikTok-only push for a safe (private) first test; add instagram/x to go public.
+    channels: ["blog", "tiktok", "email"],
     keywords: [
       "Muslim marriage",
       "halal marriage",
@@ -70,8 +75,14 @@ const BRANDS = [
     ],
     imageModel: "gpt-image-2",
     cadence: "weekly",
-    publishTarget: "draft",
+    publishTarget: "blotato",
     gateThreshold: 85,
+    blotatoAccounts: {
+      tiktok: "43752",
+      instagram: "49065",
+      twitter: "19066",
+      facebook: "33457",
+    },
     runs: [],
   },
   {
