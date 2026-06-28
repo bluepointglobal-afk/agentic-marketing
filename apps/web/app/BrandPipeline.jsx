@@ -7,6 +7,10 @@ import {
   Instagram, Twitter, FileText, BarChart3, Image as ImageIcon, Loader2,
   CircleCheck, CircleX, Megaphone,
 } from "lucide-react";
+import {
+  apiListBrands, apiCreateBrand, apiGetBrand,
+  apiStartRun, apiGetRun, apiApprove, apiReject, mapRun,
+} from "./api-client";
 
 /*
  * Brand pipeline cockpit — front end only.
@@ -38,34 +42,33 @@ const STAGES = [
   { id: "publish", label: "Publish", sub: "Blotato · site", icon: Send },
 ];
 
-const seedBrand = {
-  id: "noorstudio",
-  name: "NoorStudio",
-  audience: "Muslim parents of children aged 4–10",
-  positioning: "Gentle Islamic stories parents can teach at home",
-  voice: "Warm, reassuring, plain language. Speaks to parents as capable teachers. Concrete over abstract, short sentences, never preachy.",
-  dos: "warmth, specificity, calm confidence",
-  nevers: "hype, jargon, talking down to parents",
-  channels: ["blog", "instagram", "email"],
-  keywords: ["teaching zakat to kids", "ramadan activities children", "islamic bedtime stories"],
-  imageModel: "nano-banana",
-  cadence: "weekly",
-  publishTarget: "draft",
-  gateThreshold: 85,
-  runs: [{ id: "r0", at: Date.now() - 86400000 * 2, outcome: "published", title: "Teaching zakat to young children at home" }],
-};
+// The demo "NoorStudio" brand now lives server-side (see scripts/seed.ts);
+// the cockpit loads all brands from GET /api/brands on mount.
 
 export default function BrandPipeline() {
-  const [brands, setBrands] = useState([seedBrand]);
+  const [brands, setBrands] = useState([]);
   const [view, setView] = useState("dashboard"); // dashboard | onboarding | brand
   const [selectedId, setSelectedId] = useState(null);
+
+  // Load brands from the server on mount.
+  useEffect(() => {
+    apiListBrands().then(setBrands).catch(() => {});
+  }, []);
 
   const selected = brands.find((b) => b.id === selectedId);
 
   const openBrand = (id) => { setSelectedId(id); setView("brand"); };
-  const addBrand = (b) => {
-    setBrands((prev) => [...prev, b]);
-    setSelectedId(b.id);
+  // Persist the brand server-side, then select it. Falls back to local-only
+  // if the API is unreachable so the wizard still completes.
+  const addBrand = async (b) => {
+    let saved = b;
+    try { saved = await apiCreateBrand(b); } catch { /* offline fallback */ }
+    setBrands((prev) => {
+      const i = prev.findIndex((x) => x.id === saved.id);
+      if (i >= 0) { const c = [...prev]; c[i] = saved; return c; }
+      return [...prev, saved];
+    });
+    setSelectedId(saved.id);
     setView("brand");
   };
   const updateBrand = (id, patch) =>
@@ -317,65 +320,58 @@ function Onboarding({ onCancel, onCreate }) {
 
 function BrandConsole({ brand, onBack, onLog }) {
   const [run, setRun] = useState(null); // {stageStatus[], current, draft, awaiting, done, outcome}
-  const timer = useRef(null);
+  const [runId, setRunId] = useState(null);
+  const pollRef = useRef(null);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // Poll GET /api/runs/:id while a run is active and map it onto the rail.
+  // Replaces the simulated stage progression. Server state drives the UI.
+  useEffect(() => {
+    if (!runId) return undefined;
+    let stopped = false;
 
-  const startRun = () => {
-    // TODO(backend): POST /api/runs { brandId } to enqueue, then poll GET /api/runs/:id.
-    // The block below fakes that progression so you can see the flow.
+    const tick = async () => {
+      try {
+        const sr = await apiGetRun(runId);
+        if (stopped) return;
+        const mapped = mapRun(sr);
+        setRun(mapped);
+        if (mapped.done) {
+          clearInterval(pollRef.current);
+          // The server owns run history; refresh it for the history card.
+          try {
+            const fresh = await apiGetBrand(brand.id);
+            if (!stopped && fresh) onLog(brand.id, { runs: fresh.runs });
+          } catch { /* keep last-known history */ }
+        }
+      } catch { /* transient; keep polling */ }
+    };
+
+    tick();
+    pollRef.current = setInterval(tick, 1500);
+    return () => { stopped = true; clearInterval(pollRef.current); };
+  }, [runId, brand.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startRun = async () => {
+    // POST /api/runs { brandId } to enqueue, then poll GET /api/runs/:id (effect above).
     setRun({ stageStatus: STAGES.map(() => "queued"), current: -1, draft: null, awaiting: false, done: false, outcome: null });
-    advance(0);
-  };
-
-  const advance = (i) => {
-    setRun((r) => {
-      if (!r) return r;
-      const ss = [...r.stageStatus];
-      if (i > 0) ss[i - 1] = "done";
-      if (i >= STAGES.length) return r;
-      ss[i] = "running";
-      return { ...r, stageStatus: ss, current: i };
-    });
-
-    if (i >= STAGES.length) return;
-
-    // Stop at the gate (index 4) and wait for the operator.
-    if (STAGES[i].id === "gate") {
-      timer.current = setTimeout(() => {
-        setRun((r) => {
-          if (!r) return r;
-          const ss = [...r.stageStatus];
-          ss[i] = "review";
-          return { ...r, stageStatus: ss, awaiting: true, draft: mockDraft(brand) };
-        });
-      }, 850);
-      return;
+    try {
+      const { runId: id } = await apiStartRun(brand.id);
+      setRunId(id);
+    } catch {
+      setRun({ stageStatus: STAGES.map(() => "queued"), current: -1, draft: null, awaiting: false, done: true, outcome: "rejected" });
     }
-
-    timer.current = setTimeout(() => advance(i + 1), 900);
   };
 
-  const approve = () => {
-    // TODO(backend): POST /api/runs/:id/approve → worker resumes and publishes.
-    setRun((r) => {
-      const ss = [...r.stageStatus];
-      ss[4] = "done"; ss[5] = "running";
-      return { ...r, stageStatus: ss, awaiting: false, current: 5 };
-    });
-    timer.current = setTimeout(() => {
-      setRun((r) => ({ ...r, stageStatus: r.stageStatus.map(() => "done"), done: true, outcome: "published" }));
-      onLog(brand.id, { runs: [...brand.runs, { id: "r" + Date.now(), at: Date.now(), outcome: "published", title: mockDraft(brand).title }] });
-    }, 950);
+  const approve = async () => {
+    // POST /api/runs/:id/approve → worker resumes and publishes; polling reflects it.
+    setRun((r) => (r ? { ...r, awaiting: false } : r));
+    try { await apiApprove(runId); } catch { /* poll will resurface state */ }
   };
 
-  const reject = () => {
-    setRun((r) => {
-      const ss = [...r.stageStatus];
-      ss[4] = "rejected";
-      return { ...r, stageStatus: ss, awaiting: false, done: true, outcome: "rejected" };
-    });
-    onLog(brand.id, { runs: [...brand.runs, { id: "r" + Date.now(), at: Date.now(), outcome: "rejected", title: mockDraft(brand).title }] });
+  const reject = async () => {
+    // POST /api/runs/:id/reject → run ends, nothing publishes.
+    setRun((r) => (r ? { ...r, awaiting: false } : r));
+    try { await apiReject(runId); } catch { /* poll will resurface state */ }
   };
 
   const running = run && !run.done;
@@ -537,17 +533,6 @@ function relTime(ts) {
   if (d < 3600) return Math.floor(d / 60) + "m ago";
   if (d < 86400) return Math.floor(d / 3600) + "h ago";
   return Math.floor(d / 86400) + "d ago";
-}
-
-function mockDraft(brand) {
-  const seed = brand.keywords[0] || "your topic";
-  return {
-    score: Math.max(brand.gateThreshold, 88),
-    title: `How to approach ${seed}`,
-    meta: `A practical, in-voice guide for ${brand.audience.toLowerCase()}.`,
-    body: `Opening that lands the angle, written in ${brand.name}'s voice — warm, specific, and shaped around the search intent the SEO stage surfaced. The real run replaces this with the writer agent's output.`,
-    keywords: brand.keywords.slice(0, 3),
-  };
 }
 
 /* ───────────────────────── styles ───────────────────────── */

@@ -1,36 +1,75 @@
+import { Worker, type Job } from "bullmq";
+import { connectMongo } from "@pipeline/shared/db";
+import {
+  createRedisConnection,
+  bullConnection,
+  type RunJobData,
+} from "@pipeline/shared/queue";
 import { STAGE_IDS } from "@pipeline/shared";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
-import { createRedisConnection } from "./redis.js";
+import { processRunJob } from "./pipeline/runner.js";
+import { startScheduler, stopScheduler } from "./scheduler.js";
 
 /**
- * Worker entry point.
- *
- * Step 1: boot, verify the Redis connection, and install graceful shutdown.
- * The BullMQ Worker that consumes the run queue and executes the Agent SDK
- * pipeline is wired in step 3+. Kept intentionally minimal but runnable.
+ * Worker entry point. Long-running process (NOT serverless) that:
+ *  - consumes the run queue and executes the Agent SDK pipeline per job
+ *  - runs the cron scheduler that enqueues per-cadence runs
+ * Deploys to a persistent host (see README → Worker deployment).
  */
 async function main(): Promise<void> {
   logger.info(
-    { queue: config.queueName, stages: STAGE_IDS, concurrency: config.concurrency },
+    {
+      queue: config.queueName,
+      driver: config.pipelineDriver,
+      concurrency: config.concurrency,
+      scheduler: config.schedulerEnabled,
+      stages: STAGE_IDS,
+    },
     "worker starting",
   );
 
+  await connectMongo(config.mongoUri);
+  logger.info("mongo connected");
+
   const connection = createRedisConnection();
-
-  connection.on("error", (err) => logger.error({ err }, "redis connection error"));
-  connection.on("ready", () => logger.info("redis connection ready"));
-
-  // Fail fast if Redis is unreachable, so misconfiguration is obvious at boot.
   await connection.ping();
-  logger.info("redis ping ok — worker idle, awaiting jobs (queue consumer wired in step 3)");
+  logger.info("redis connected");
+
+  const worker = new Worker<RunJobData>(
+    config.queueName,
+    async (job: Job<RunJobData>) => {
+      await processRunJob(job);
+    },
+    { connection: bullConnection(), concurrency: config.concurrency },
+  );
+
+  worker.on("completed", (job) =>
+    logger.info({ jobId: job.id, name: job.name }, "job completed"),
+  );
+  worker.on("failed", (job, err) =>
+    logger.error({ jobId: job?.id, name: job?.name, err }, "job failed"),
+  );
+  worker.on("error", (err) => logger.error({ err }, "worker error"));
+
+  if (config.schedulerEnabled) {
+    await startScheduler();
+  }
+
+  logger.info("worker ready — consuming jobs");
 
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info({ signal }, "shutting down");
-    await connection.quit().catch((err) => logger.error({ err }, "redis quit failed"));
+    try {
+      await worker.close();
+      await stopScheduler();
+      await connection.quit();
+    } catch (err) {
+      logger.error({ err }, "error during shutdown");
+    }
     process.exit(0);
   };
 

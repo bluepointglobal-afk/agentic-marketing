@@ -1,4 +1,4 @@
-import pino from "pino";
+import pino, { type Logger as PinoLogger } from "pino";
 import { config } from "./config.js";
 
 /**
@@ -10,4 +10,7 @@ export const logger = pino({
   base: { service: "pipeline-worker" },
 });
 
-export type Logger = typeof logger;
+// Single Logger type across modules. Use pino's own alias rather than
+// ReturnType<typeof logger.child> — the latter instantiates pino's generic to
+// its `string` constraint and clashes with the `never` inferred at call sites.
+export type Logger = PinoLogger;
