@@ -325,6 +325,7 @@ function Onboarding({ onCancel, onCreate }) {
 function BrandConsole({ brand, onBack, onLog }) {
   const [run, setRun] = useState(null); // {stageStatus[], current, draft, awaiting, done, outcome}
   const [runId, setRunId] = useState(null);
+  const [editing, setEditing] = useState(false);
   const pollRef = useRef(null);
 
   // Poll GET /api/runs/:id while a run is active and map it onto the rail.
@@ -380,6 +381,16 @@ function BrandConsole({ brand, onBack, onLog }) {
 
   const running = run && !run.done;
 
+  if (editing) {
+    return (
+      <BrandEditor
+        brand={brand}
+        onCancel={() => setEditing(false)}
+        onSaved={(updated) => { onLog(brand.id, updated); setEditing(false); }}
+      />
+    );
+  }
+
   return (
     <div className="page">
       <button className="back" onClick={onBack}><ChevronLeft size={16} /> All brands</button>
@@ -388,9 +399,14 @@ function BrandConsole({ brand, onBack, onLog }) {
           <h1 className="display">{brand.name}</h1>
           <p className="lede">{brand.positioning}</p>
         </div>
-        <button className="btn btn-primary" disabled={running} onClick={startRun}>
-          {running ? <><Loader2 size={16} className="spin" /> Running</> : <><Play size={16} /> Run pipeline</>}
-        </button>
+        <div className="head-actions">
+          <button className="btn btn-ghost" disabled={running} onClick={() => setEditing(true)}>
+            <PenTool size={15} /> Edit
+          </button>
+          <button className="btn btn-primary" disabled={running} onClick={startRun}>
+            {running ? <><Loader2 size={16} className="spin" /> Running</> : <><Play size={16} /> Run pipeline</>}
+          </button>
+        </div>
       </header>
 
       <div className="console">
@@ -454,16 +470,15 @@ function BrandConsole({ brand, onBack, onLog }) {
               <p className="muted">Working through the pipeline…</p>
             </div>
           ) : (
-            <>
-              <div className="card config">
-                <div className="card-label">Configuration</div>
-                <ConfigRow k="Audience" v={brand.audience} />
-                <ConfigRow k="Cadence" v={brand.cadence} />
-                <ConfigRow k="Images" v={brand.imageModel === "gpt-image-2" ? "GPT Image 2" : "Nano Banana"} />
-                <ConfigRow k="Voice gate" v={`${brand.gateThreshold} min`} />
-              </div>
-              <PublishingEditor brand={brand} onSaved={(updated) => onLog(brand.id, updated)} />
-            </>
+            <div className="card config">
+              <div className="card-label">Configuration</div>
+              <ConfigRow k="Audience" v={brand.audience} />
+              <ConfigRow k="Cadence" v={brand.cadence} />
+              <ConfigRow k="Channels" v={brand.channels.join(", ")} />
+              <ConfigRow k="Images" v={brand.imageModel === "gpt-image-2" ? "GPT Image 2" : "Nano Banana"} />
+              <ConfigRow k="Publish" v={publishLabel(brand.publishTarget)} />
+              <ConfigRow k="Voice gate" v={`${brand.gateThreshold} min`} />
+            </div>
           )}
 
           <div className="card history">
@@ -507,83 +522,146 @@ function ConfigRow({ k, v }) {
   );
 }
 
-// Edit a brand's channels, publish target, and per-channel Blotato account ids.
-function PublishingEditor({ brand, onSaved }) {
-  const [channels, setChannels] = useState(brand.channels || []);
-  const [publishTarget, setPublishTarget] = useState(brand.publishTarget || "draft");
-  const [accounts, setAccounts] = useState(brand.blotatoAccounts || {});
+// Full brand editor — all fields that feed every run, incl. cadence + Blotato ids.
+function BrandEditor({ brand, onCancel, onSaved }) {
+  const [d, setD] = useState({
+    name: brand.name || "",
+    audience: brand.audience || "",
+    positioning: brand.positioning || "",
+    voice: brand.voice || "",
+    dos: brand.dos || "",
+    nevers: brand.nevers || "",
+    channels: brand.channels || [],
+    keywords: brand.keywords || [],
+    imageModel: brand.imageModel || "gpt-image-2",
+    cadence: brand.cadence || "weekly",
+    publishTarget: brand.publishTarget || "draft",
+    gateThreshold: brand.gateThreshold ?? 85,
+    blotatoAccounts: brand.blotatoAccounts || {},
+  });
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
 
+  const set = (patch) => setD((s) => ({ ...s, ...patch }));
   const toggleChannel = (id) =>
-    setChannels((cur) => (cur.includes(id) ? cur.filter((c) => c !== id) : [...cur, id]));
+    set({ channels: d.channels.includes(id) ? d.channels.filter((c) => c !== id) : [...d.channels, id] });
   const setAccount = (platform, val) =>
-    setAccounts((a) => ({ ...a, [platform]: val }));
+    set({ blotatoAccounts: { ...d.blotatoAccounts, [platform]: val } });
 
   const save = async () => {
-    setSaving(true);
+    setSaving(true); setError(null);
     try {
-      const updated = await apiUpdateBrand(brand.id, {
-        channels, publishTarget, blotatoAccounts: accounts,
-      });
+      const updated = await apiUpdateBrand(brand.id, d);
       onSaved(updated);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1600);
-    } catch (e) { /* leave the form as-is so the user can retry */ }
-    setSaving(false);
+    } catch (e) {
+      setError("Could not save. Check the server and try again.");
+      setSaving(false);
+    }
   };
 
-  // Blotato-capable channels currently selected (instagram, x, tiktok).
-  const blotatoChannels = channels.filter((c) => BLOTATO_PLATFORM[c]);
+  const blotatoChannels = d.channels.filter((c) => BLOTATO_PLATFORM[c]);
 
   return (
-    <div className="card config">
-      <div className="card-label">Channels &amp; publishing</div>
-
-      <div className="chip-row">
-        {CHANNELS.map((c) => {
-          const on = channels.includes(c.id);
-          const Icon = c.icon;
-          return (
-            <button key={c.id} className={`chip ${on ? "chip-active" : ""}`} onClick={() => toggleChannel(c.id)}>
-              <Icon size={14} /> {c.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="seg" style={{ marginTop: 12 }}>
-        {[["draft", "Draft"], ["blotato", "Blotato"], ["cms", "CMS"]].map(([v, l]) => (
-          <button key={v} className={`seg-btn ${publishTarget === v ? "on" : ""}`} onClick={() => setPublishTarget(v)}>{l}</button>
-        ))}
-      </div>
-
-      {publishTarget === "blotato" && (
-        <div style={{ marginTop: 12 }}>
-          <div className="field-hint">Blotato account ID per channel</div>
-          {blotatoChannels.length === 0 ? (
-            <p className="muted small">Select Instagram, X, or TikTok above to add account IDs.</p>
-          ) : (
-            blotatoChannels.map((c) => {
-              const platform = BLOTATO_PLATFORM[c];
-              const ch = CHANNELS.find((x) => x.id === c);
-              const Icon = ch?.icon || Globe;
-              return (
-                <div key={c} className="acct-row">
-                  <span className="acct-label"><Icon size={13} /> {ch?.label}</span>
-                  <input className="input acct-input" placeholder="account ID"
-                    value={accounts[platform] || ""}
-                    onChange={(e) => setAccount(platform, e.target.value)} />
-                </div>
-              );
-            })
-          )}
+    <div className="page narrow">
+      <button className="back" onClick={onCancel}><ChevronLeft size={16} /> Back to {brand.name}</button>
+      <header className="page-head">
+        <div>
+          <h1 className="display">Edit {brand.name}</h1>
+          <p className="lede">These settings are the input to every run.</p>
         </div>
-      )}
+      </header>
 
-      <button className="btn btn-primary save-btn" disabled={saving} onClick={save}>
-        {saving ? "Saving…" : saved ? <><Check size={15} /> Saved</> : "Save settings"}
-      </button>
+      <div className="card wizard">
+        <Field label="Brand name">
+          <input className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} />
+        </Field>
+        <Field label="Audience">
+          <input className="input" value={d.audience} onChange={(e) => set({ audience: e.target.value })} />
+        </Field>
+        <Field label="Positioning">
+          <input className="input" value={d.positioning} onChange={(e) => set({ positioning: e.target.value })} />
+        </Field>
+        <Field label="Voice" hint="The writer and QA agents are locked to this on every run.">
+          <textarea className="textarea" rows={4} value={d.voice} onChange={(e) => set({ voice: e.target.value })} />
+        </Field>
+        <div className="two-col">
+          <Field label="Lean into">
+            <input className="input" value={d.dos} onChange={(e) => set({ dos: e.target.value })} />
+          </Field>
+          <Field label="Never">
+            <input className="input" value={d.nevers} onChange={(e) => set({ nevers: e.target.value })} />
+          </Field>
+        </div>
+
+        <Field label="Channels" hint="Where finished content publishes.">
+          <div className="chip-row">
+            {CHANNELS.map((c) => {
+              const on = d.channels.includes(c.id);
+              const Icon = c.icon;
+              return (
+                <button key={c.id} className={`chip ${on ? "chip-active" : ""}`} onClick={() => toggleChannel(c.id)}>
+                  <Icon size={14} /> {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+        <Field label="Topics & keywords" hint="Press Enter to add. The SEO agent expands these.">
+          <TagInput tags={d.keywords} onChange={(keywords) => set({ keywords })} />
+        </Field>
+
+        <Field label="Run cadence" hint="How often the server fires this pipeline automatically. 'manual' = only on-demand runs.">
+          <div className="seg">
+            {["manual", "daily", "weekly"].map((c) => (
+              <button key={c} className={`seg-btn ${d.cadence === c ? "on" : ""}`} onClick={() => set({ cadence: c })}>{c}</button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Publish target" hint="Where the worker sends approved content.">
+          <div className="seg">
+            {[["draft", "Hold as draft"], ["blotato", "Blotato"], ["cms", "Site / CMS"]].map(([v, l]) => (
+              <button key={v} className={`seg-btn ${d.publishTarget === v ? "on" : ""}`} onClick={() => set({ publishTarget: v })}>{l}</button>
+            ))}
+          </div>
+        </Field>
+
+        {d.publishTarget === "blotato" && (
+          <Field label="Blotato account IDs" hint="One connected-account id per social channel.">
+            {blotatoChannels.length === 0 ? (
+              <p className="muted small">Select Instagram, X, or TikTok above to add account IDs.</p>
+            ) : (
+              blotatoChannels.map((c) => {
+                const platform = BLOTATO_PLATFORM[c];
+                const ch = CHANNELS.find((x) => x.id === c);
+                const Icon = ch?.icon || Globe;
+                return (
+                  <div key={c} className="acct-row">
+                    <span className="acct-label"><Icon size={13} /> {ch?.label}</span>
+                    <input className="input acct-input" placeholder="account ID"
+                      value={d.blotatoAccounts[platform] || ""}
+                      onChange={(e) => setAccount(platform, e.target.value)} />
+                  </div>
+                );
+              })
+            )}
+          </Field>
+        )}
+
+        <Field label={`Brand-voice gate: ${d.gateThreshold}`} hint="Minimum score before a draft can publish.">
+          <input type="range" min={60} max={100} value={d.gateThreshold}
+            onChange={(e) => set({ gateThreshold: Number(e.target.value) })} className="range" />
+        </Field>
+
+        {error && <p className="muted small" style={{ color: THEME.red }}>{error}</p>}
+
+        <div className="wizard-foot">
+          <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="btn btn-primary" disabled={saving || !d.name.trim()} onClick={save}>
+            {saving ? "Saving…" : <><Check size={16} /> Save changes</>}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -659,6 +737,7 @@ function Style() {
 .page { max-width:1000px; margin:0 auto; padding:34px 38px 60px; }
 .page.narrow { max-width:680px; }
 .page-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:26px; }
+.head-actions { display:flex; gap:9px; align-items:center; }
 .display { font-size:30px; margin:0; }
 .lede { color:var(--muted); margin:7px 0 0; font-size:14.5px; }
 .back { background:none; border:none; cursor:pointer; color:var(--muted); display:flex; align-items:center;
