@@ -2,6 +2,7 @@
  * Worker configuration, read once from the environment.
  * All secrets/keys live here (server-side only) — never shipped to the client.
  */
+import "./env.js"; // load repo-root .env before reading any var
 
 function optional(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
