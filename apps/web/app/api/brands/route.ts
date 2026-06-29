@@ -55,6 +55,7 @@ export async function POST(req: Request): Promise<Response> {
         gateThreshold: body.gateThreshold ?? 85,
         brandDna: body.brandDna ?? "",
         assets: body.assets ?? {},
+        siteUrl: body.siteUrl ?? "",
         blotatoAccounts: body.blotatoAccounts ?? {},
         // Never trust client-sent run history; runs are server-owned.
         $setOnInsert: { runs: [] },

@@ -60,6 +60,10 @@ const BrandSchema = new Schema(
     brandDna: { type: String, default: "" },
     // Brand assets (logo/wordmark/palette/refs) used during generation.
     assets: { type: Schema.Types.Mixed, default: {} },
+    // Brand site for GSC metrics matching.
+    siteUrl: { type: String, default: "" },
+    // Latest KPI snapshot from the measure stage (server-owned).
+    kpis: { type: Schema.Types.Mixed, default: null },
     // Blotato account ids keyed by platform (tiktok/instagram/twitter/facebook).
     blotatoAccounts: { type: Schema.Types.Mixed, default: {} },
     runs: { type: [RunSummarySchema], default: [] },
@@ -162,6 +166,8 @@ export function toBrand(doc: BrandDoc & Record<string, unknown>): Brand {
     gateThreshold: doc.gateThreshold,
     brandDna: (doc as { brandDna?: string }).brandDna ?? "",
     assets: (doc as { assets?: Brand["assets"] }).assets ?? {},
+    siteUrl: (doc as { siteUrl?: string }).siteUrl ?? "",
+    kpis: (doc as { kpis?: Brand["kpis"] }).kpis ?? undefined,
     blotatoAccounts:
       (doc as { blotatoAccounts?: Record<string, string> }).blotatoAccounts ?? {},
     runs: (doc.runs ?? []).map((r) => ({

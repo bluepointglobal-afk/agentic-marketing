@@ -66,6 +66,35 @@ export interface BrandAssets {
   referenceImageUrls?: string[];
 }
 
+/** A single measured query/term with whatever the source provides. */
+export interface MetricItem {
+  term: string;
+  clicks?: number;
+  impressions?: number;
+  ctr?: number;
+  position?: number;
+  engagement?: number;
+}
+
+/**
+ * KPI snapshot produced by the measure stage and fed back into seo/brief —
+ * this is what "closes the loop": each cycle leans into what performed and
+ * refreshes what didn't.
+ */
+export interface BrandKpis {
+  updatedAt: string;
+  /** Which metric providers contributed (e.g. "internal-history", "gsc"). */
+  sources: string[];
+  /** Keywords/topics to lean into next cycle. */
+  doubleDown: string[];
+  /** Topics to refresh or stop repeating. */
+  refresh: string[];
+  /** Top measured queries (when an external source is wired). */
+  topQueries: MetricItem[];
+  /** One-paragraph agent-readable insight. */
+  summary: string;
+}
+
 /** Draft produced at the gate — shape matches run.draft in the cockpit. */
 export interface Draft {
   title: string;
@@ -108,6 +137,10 @@ export interface Brand {
   brandDna?: string;
   /** Logo / visual references used during asset generation. */
   assets?: BrandAssets;
+  /** Brand site (used by the GSC metrics provider to match pages/queries). */
+  siteUrl?: string;
+  /** Latest KPI snapshot from the measure stage (server-owned, closes the loop). */
+  kpis?: BrandKpis;
   /**
    * Blotato connected-account ids, keyed by Blotato platform
    * (tiktok | instagram | twitter | facebook). Server-side config, not shown

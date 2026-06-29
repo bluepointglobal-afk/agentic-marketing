@@ -38,6 +38,7 @@ const EDITABLE = [
   "gateThreshold",
   "brandDna",
   "assets",
+  "siteUrl",
   "blotatoAccounts",
 ] as const;
 

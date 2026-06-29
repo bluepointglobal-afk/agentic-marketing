@@ -231,7 +231,10 @@ stage marks the run `errored` and never hangs.
   (stored in MongoDB GridFS). DNA is injected into every agent prompt; the logo
   is composited onto every generated image (sharp). TikTok/IG/X publishing via
   Blotato with per-brand account ids set in the cockpit.
-- [ ] **Closed-loop measure** — ingest real KPIs for prior posts and feed them
-  back into seo/brief so each cycle improves on what performed.
+- [x] **Closed-loop measure** — pluggable metrics providers (internal run
+  history always-on; Google Search Console when creds + `siteUrl` are set)
+  gather KPIs, persist a snapshot on the brand, and feed "double down / refresh"
+  guidance into seo + brief so each cycle improves on what performed. Insights
+  shown on the brand page.
 - [ ] **Funnel** — post-publish landing page + email sequence via a pluggable
   connector (Kartra / ConvertKit / Mailchimp).

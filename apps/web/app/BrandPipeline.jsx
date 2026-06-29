@@ -478,6 +478,19 @@ function BrandConsole({ brand, onBack, onLog }) {
               <ConfigRow k="Images" v={brand.imageModel === "gpt-image-2" ? "GPT Image 2" : "Nano Banana"} />
               <ConfigRow k="Publish" v={publishLabel(brand.publishTarget)} />
               <ConfigRow k="Voice gate" v={`${brand.gateThreshold} min`} />
+              {brand.kpis?.summary && (
+                <div className="insights">
+                  <div className="insights-label"><BarChart3 size={12} /> Last insights</div>
+                  <p className="insights-text">{brand.kpis.summary}</p>
+                  {brand.kpis.doubleDown?.length > 0 && (
+                    <div className="chip-row">
+                      {brand.kpis.doubleDown.slice(0, 6).map((k) => (
+                        <span key={k} className="chip-mini"><Hash size={11} /> {k}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -539,6 +552,7 @@ function BrandEditor({ brand, onCancel, onSaved }) {
     gateThreshold: brand.gateThreshold ?? 85,
     brandDna: brand.brandDna || "",
     assets: brand.assets || {},
+    siteUrl: brand.siteUrl || "",
     blotatoAccounts: brand.blotatoAccounts || {},
   });
   const [saving, setSaving] = useState(false);
@@ -643,6 +657,9 @@ function BrandEditor({ brand, onCancel, onSaved }) {
         </Field>
         <Field label="Topics & keywords" hint="Press Enter to add. The SEO agent expands these.">
           <TagInput tags={d.keywords} onChange={(keywords) => set({ keywords })} />
+        </Field>
+        <Field label="Site URL" hint="For Google Search Console KPIs (e.g. https://yourbrand.com/ or sc-domain:yourbrand.com).">
+          <input className="input" value={d.siteUrl} onChange={(e) => set({ siteUrl: e.target.value })} placeholder="https://yourbrand.com/" />
         </Field>
 
         <Field label="Run cadence" hint="How often the server fires this pipeline automatically. 'manual' = only on-demand runs.">
@@ -883,6 +900,9 @@ function Style() {
 .save-btn { margin-top:14px; width:100%; justify-content:center; }
 .logo-uploader { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .logo-preview { width:56px; height:56px; object-fit:contain; border:1px solid var(--line); border-radius:9px; background:#FCFBF7; padding:4px; }
+.insights { margin-top:14px; padding-top:13px; border-top:1px solid var(--line); }
+.insights-label { font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); display:flex; align-items:center; gap:5px; margin-bottom:7px; }
+.insights-text { font-size:12.5px; line-height:1.55; color:#384640; margin:0 0 9px; }
 .draft .score-row { display:flex; align-items:baseline; gap:7px; margin-bottom:10px; }
 .score { font-family:'Fraunces',serif; font-size:34px; color:var(--accent); line-height:1; }
 .draft-title { font-family:'Fraunces',serif; font-size:18px; margin:0 0 6px; font-weight:500; }

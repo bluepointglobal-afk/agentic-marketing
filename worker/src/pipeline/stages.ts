@@ -1,6 +1,8 @@
-import type { Brand, Draft } from "@pipeline/shared";
+import type { Brand, Draft, BrandKpis } from "@pipeline/shared";
+import { BrandModel } from "@pipeline/shared/models";
 import { config } from "../config.js";
 import type { Logger } from "../logger.js";
+import { gatherKpis } from "../metrics/index.js";
 import { runAgentStage } from "./sdk.js";
 import {
   SEO_RESEARCHER,
@@ -16,6 +18,7 @@ import { generateImage } from "./image.js";
 export interface MeasureData {
   note: string;
   metrics: Record<string, unknown>;
+  kpis: BrandKpis;
 }
 export interface SeoData {
   intent: string;
@@ -59,23 +62,48 @@ function delay(ms: number): Promise<void> {
 
 /* ───────────────────────── measure ───────────────────────── */
 /**
- * No agent: real GSC/GA4/social metrics integration is pending. For now this
- * emits a placeholder metrics object that downstream stages can reference.
- * (Swap point: pull GSC + GA4 + social numbers here.)
+ * Gather performance KPIs from every configured metrics provider (internal run
+ * history always; GSC when creds + siteUrl are set), persist the snapshot on the
+ * brand, and hand the insights to seo/brief. This is the feedback half of the
+ * closed loop: each cycle leans into what performed and refreshes what didn't.
  */
 export async function runMeasure(
   brand: Brand,
   log: Logger,
 ): Promise<StageOutput<MeasureData>> {
-  await delay(isStub() ? 700 : 0);
-  log.info("measure: metrics integration pending (placeholder)");
+  if (isStub()) await delay(700);
+
+  const kpis = await gatherKpis(brand, log);
+  // Persist the snapshot so the cockpit can show it and the next run can read it.
+  await BrandModel.updateOne({ _id: brand.id }, { $set: { kpis } });
+  log.info(
+    { sources: kpis.sources, doubleDown: kpis.doubleDown.length, refresh: kpis.refresh.length },
+    "measure: KPIs gathered",
+  );
+
   return {
     data: {
-      note: "Metrics integration pending (GSC/GA4/social).",
+      note: kpis.summary,
       metrics: { channels: brand.channels, seedKeywords: brand.keywords },
+      kpis,
     },
     costUsd: 0,
   };
+}
+
+/** Format prior-performance KPIs as guidance injected into seo/brief prompts. */
+function kpiGuidance(ctx: PipelineContext): string {
+  const k = ctx.measure?.kpis;
+  if (!k) return "";
+  const parts: string[] = [];
+  if (k.doubleDown.length) parts.push(`Lean into (these performed): ${k.doubleDown.join(", ")}.`);
+  if (k.refresh.length) parts.push(`Refresh / don't repeat: ${k.refresh.join(", ")}.`);
+  if (k.topQueries.length) {
+    const top = k.topQueries.slice(0, 8).map((q) => q.term).filter(Boolean).join(", ");
+    if (top) parts.push(`Top measured queries: ${top}.`);
+  }
+  if (k.summary) parts.push(k.summary);
+  return parts.length ? `\nPrior performance (close the loop):\n${parts.join("\n")}\n` : "";
 }
 
 /* ───────────────────────── seo ───────────────────────── */
@@ -102,8 +130,9 @@ export async function runSeo(
   const instruction =
     `${brandVoiceBlock(brand)}\n\n` +
     `Seed topics/keywords: ${brand.keywords.join(", ") || "(none provided)"}\n` +
-    `Metrics context: ${JSON.stringify(ctx.measure?.metrics ?? {})}\n\n` +
-    "Find the search intent, the single winning angle, and 5–8 target keywords.";
+    kpiGuidance(ctx) +
+    "\nFind the search intent, the single winning angle, and 5–8 target keywords. " +
+    "Prioritise the keywords that performed; refresh rather than repeat what didn't.";
 
   return runAgentStage<SeoData>({
     agentName: SEO_RESEARCHER,
@@ -136,9 +165,10 @@ export async function runBrief(
 
   const instruction =
     `${brandVoiceBlock(brand)}\n\n` +
-    `Metrics: ${JSON.stringify(ctx.measure?.metrics ?? {})}\n` +
-    `SEO findings: ${JSON.stringify(ctx.seo ?? {})}\n\n` +
-    "Synthesize a content brief the writer can execute without guessing.";
+    `SEO findings: ${JSON.stringify(ctx.seo ?? {})}\n` +
+    kpiGuidance(ctx) +
+    "\nSynthesize a content brief the writer can execute without guessing. " +
+    "Reflect the prior-performance guidance in the angle and must-hit points.";
 
   return runAgentStage<BriefData>({
     agentName: BRIEF_WRITER,
