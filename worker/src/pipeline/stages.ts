@@ -186,11 +186,26 @@ export async function runCreate(
   // Generate the creative for the post (provider per brand.imageModel).
   let imageUrl: string | null = null;
   try {
+    const palette = brand.assets?.palette?.length
+      ? ` Brand colours: ${brand.assets.palette.join(", ")}.`
+      : "";
     const imagePrompt =
       `Brand creative for "${data.title}". ${brand.positioning}. ` +
-      `Audience: ${brand.audience}. Style: on-brand, clean.`;
+      `Audience: ${brand.audience}. Style: on-brand, clean.${palette}`;
     const img = await generateImage(brand, imagePrompt, log);
     imageUrl = img.url;
+
+    // Composite the brand logo onto the creative when both are available.
+    if (img.buffer && brand.assets?.logoUrl) {
+      const { compositeLogo } = await import("./compositing.js");
+      const final = await compositeLogo(
+        img.buffer,
+        brand.assets.logoUrl,
+        brand.assets.logoPosition ?? "bottom-right",
+        log,
+      );
+      imageUrl = `data:image/png;base64,${final.toString("base64")}`;
+    }
   } catch (err) {
     // Image failure must not fail the whole run.
     log.error({ err }, "image generation failed; continuing without image");

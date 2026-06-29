@@ -56,6 +56,10 @@ const BrandSchema = new Schema(
       default: "draft",
     },
     gateThreshold: { type: Number, default: 85 },
+    // Long-form brand DNA injected into agent prompts.
+    brandDna: { type: String, default: "" },
+    // Brand assets (logo/wordmark/palette/refs) used during generation.
+    assets: { type: Schema.Types.Mixed, default: {} },
     // Blotato account ids keyed by platform (tiktok/instagram/twitter/facebook).
     blotatoAccounts: { type: Schema.Types.Mixed, default: {} },
     runs: { type: [RunSummarySchema], default: [] },
@@ -156,6 +160,8 @@ export function toBrand(doc: BrandDoc & Record<string, unknown>): Brand {
     cadence: doc.cadence as Cadence,
     publishTarget: doc.publishTarget as PublishTarget,
     gateThreshold: doc.gateThreshold,
+    brandDna: (doc as { brandDna?: string }).brandDna ?? "",
+    assets: (doc as { assets?: Brand["assets"] }).assets ?? {},
     blotatoAccounts:
       (doc as { blotatoAccounts?: Record<string, string> }).blotatoAccounts ?? {},
     runs: (doc.runs ?? []).map((r) => ({

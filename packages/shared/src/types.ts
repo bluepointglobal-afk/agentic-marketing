@@ -46,6 +46,26 @@ export type RunStatus =
   | "rejected"
   | "errored";
 
+/** Where to place the composited logo/wordmark on a generated image. */
+export type LogoPosition = "bottom-right" | "bottom-center" | "top-left";
+
+/**
+ * Brand assets attached at onboarding/edit and used during generation.
+ * URLs are app-relative (/api/assets/:id, served from GridFS) or external.
+ */
+export interface BrandAssets {
+  /** Primary logo, composited onto generated creatives. */
+  logoUrl?: string | null;
+  /** Optional separate wordmark (text logo). */
+  wordmarkUrl?: string | null;
+  /** Where the logo is overlaid on images. */
+  logoPosition?: LogoPosition;
+  /** Hex brand colours, fed into image prompts. */
+  palette?: string[];
+  /** Reference images for on-brand / consistent-character generation. */
+  referenceImageUrls?: string[];
+}
+
 /** Draft produced at the gate — shape matches run.draft in the cockpit. */
 export interface Draft {
   title: string;
@@ -81,6 +101,13 @@ export interface Brand {
   cadence: Cadence;
   publishTarget: PublishTarget;
   gateThreshold: number;
+  /**
+   * Long-form brand DNA (the brand-dna.md equivalent) injected into every
+   * agent's prompt — richer brand context beyond voice/dos/nevers.
+   */
+  brandDna?: string;
+  /** Logo / visual references used during asset generation. */
+  assets?: BrandAssets;
   /**
    * Blotato connected-account ids, keyed by Blotato platform
    * (tiktok | instagram | twitter | facebook). Server-side config, not shown

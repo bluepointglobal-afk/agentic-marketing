@@ -13,6 +13,8 @@ export interface GeneratedImage {
   provider: Brand["imageModel"];
   /** Hosted URL or data URL. null if generation was skipped/unconfigured. */
   url: string | null;
+  /** Raw PNG bytes when available (used for logo compositing). */
+  buffer: Buffer | null;
 }
 
 export async function generateImage(
@@ -27,7 +29,7 @@ export async function generateImage(
       return generateNanoBanana(prompt, log);
     default:
       log.warn({ imageModel: brand.imageModel }, "unknown image model; skipping");
-      return { provider: brand.imageModel, url: null };
+      return { provider: brand.imageModel, url: null, buffer: null };
   }
 }
 
@@ -39,7 +41,7 @@ async function generateGptImage2(
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     log.warn("OPENAI_API_KEY not set; skipping image generation");
-    return { provider: "gpt-image-2", url: null };
+    return { provider: "gpt-image-2", url: null, buffer: null };
   }
 
   const res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -65,13 +67,15 @@ async function generateGptImage2(
     data?: Array<{ url?: string; b64_json?: string }>;
   };
   const item = data.data?.[0];
-  if (item?.url) return { provider: "gpt-image-2", url: item.url };
-  if (item?.b64_json)
+  if (item?.b64_json) {
     return {
       provider: "gpt-image-2",
       url: `data:image/png;base64,${item.b64_json}`,
+      buffer: Buffer.from(item.b64_json, "base64"),
     };
-  return { provider: "gpt-image-2", url: null };
+  }
+  if (item?.url) return { provider: "gpt-image-2", url: item.url, buffer: null };
+  return { provider: "gpt-image-2", url: null, buffer: null };
 }
 
 /**
@@ -85,5 +89,5 @@ async function generateNanoBanana(
   log: Logger,
 ): Promise<GeneratedImage> {
   log.warn("nano-banana provider not yet wired; skipping image generation");
-  return { provider: "nano-banana", url: null };
+  return { provider: "nano-banana", url: null, buffer: null };
 }

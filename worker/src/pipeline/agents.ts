@@ -83,14 +83,19 @@ export function buildAgents(): Record<string, AgentDefinition> {
   };
 }
 
-/** Compact brand voice block injected into every stage prompt. */
+/** Compact brand context block injected into every stage prompt. */
 export function brandVoiceBlock(brand: Brand): string {
-  return [
+  const lines = [
     `Brand: ${brand.name}`,
     `Audience: ${brand.audience}`,
     `Positioning: ${brand.positioning}`,
     `Voice: ${brand.voice}`,
     `Lean into: ${brand.dos}`,
     `Never: ${brand.nevers}`,
-  ].join("\n");
+  ];
+  // Long-form brand DNA (uploaded at onboarding) anchors everything else.
+  if (brand.brandDna && brand.brandDna.trim()) {
+    lines.push("", "Brand DNA:", brand.brandDna.trim());
+  }
+  return lines.join("\n");
 }

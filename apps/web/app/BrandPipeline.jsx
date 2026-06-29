@@ -8,7 +8,7 @@ import {
   CircleCheck, CircleX, Megaphone, Music2,
 } from "lucide-react";
 import {
-  apiListBrands, apiCreateBrand, apiGetBrand, apiUpdateBrand,
+  apiListBrands, apiCreateBrand, apiGetBrand, apiUpdateBrand, apiUploadAsset,
   apiStartRun, apiGetRun, apiApprove, apiReject, mapRun,
 } from "./api-client";
 
@@ -537,12 +537,25 @@ function BrandEditor({ brand, onCancel, onSaved }) {
     cadence: brand.cadence || "weekly",
     publishTarget: brand.publishTarget || "draft",
     gateThreshold: brand.gateThreshold ?? 85,
+    brandDna: brand.brandDna || "",
+    assets: brand.assets || {},
     blotatoAccounts: brand.blotatoAccounts || {},
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   const set = (patch) => setD((s) => ({ ...s, ...patch }));
+  const uploadLogo = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { url } = await apiUploadAsset(file);
+      setD((s) => ({ ...s, assets: { ...s.assets, logoUrl: url } }));
+    } catch { setError("Logo upload failed."); }
+    setUploading(false);
+  };
   const toggleChannel = (id) =>
     set({ channels: d.channels.includes(id) ? d.channels.filter((c) => c !== id) : [...d.channels, id] });
   const setAccount = (platform, val) =>
@@ -592,6 +605,28 @@ function BrandEditor({ brand, onCancel, onSaved }) {
             <input className="input" value={d.nevers} onChange={(e) => set({ nevers: e.target.value })} />
           </Field>
         </div>
+
+        <Field label="Brand DNA" hint="Long-form brand identity / brand book. Injected into every agent on every run.">
+          <textarea className="textarea" rows={6} value={d.brandDna}
+            onChange={(e) => set({ brandDna: e.target.value })}
+            placeholder="Paste your brand DNA — identity, positioning, proof, do/don't, visual identity…" />
+        </Field>
+
+        <Field label="Brand logo" hint="Composited onto every generated image.">
+          <div className="logo-uploader">
+            {d.assets.logoUrl && <img className="logo-preview" src={d.assets.logoUrl} alt="logo" />}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={uploadLogo} />
+            {uploading && <span className="muted small">Uploading…</span>}
+          </div>
+          {d.assets.logoUrl && (
+            <div className="seg" style={{ marginTop: 8 }}>
+              {["bottom-right", "bottom-center", "top-left"].map((p) => (
+                <button key={p} className={`seg-btn ${(d.assets.logoPosition || "bottom-right") === p ? "on" : ""}`}
+                  onClick={() => set({ assets: { ...d.assets, logoPosition: p } })}>{p}</button>
+              ))}
+            </div>
+          )}
+        </Field>
 
         <Field label="Channels" hint="Where finished content publishes.">
           <div className="chip-row">
@@ -846,6 +881,8 @@ function Style() {
 .acct-label { display:inline-flex; align-items:center; gap:5px; font-size:13px; width:96px; flex-shrink:0; color:var(--text); }
 .acct-input { flex:1; padding:7px 10px; font-size:13px; }
 .save-btn { margin-top:14px; width:100%; justify-content:center; }
+.logo-uploader { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.logo-preview { width:56px; height:56px; object-fit:contain; border:1px solid var(--line); border-radius:9px; background:#FCFBF7; padding:4px; }
 .draft .score-row { display:flex; align-items:baseline; gap:7px; margin-bottom:10px; }
 .score { font-family:'Fraunces',serif; font-size:34px; color:var(--accent); line-height:1; }
 .draft-title { font-family:'Fraunces',serif; font-size:18px; margin:0 0 6px; font-weight:500; }

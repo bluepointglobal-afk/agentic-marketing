@@ -224,3 +224,14 @@ stage marks the run `errored` and never hangs.
 - [x] **5. Image generation + publish** — GPT Image 2 wired; `draft` publish wired
 - [x] **6. Cron scheduler** — per-cadence runs (daily/weekly)
 - [x] **7. Worker Dockerfile + deploy notes**
+
+### Closed-loop extensions (in progress)
+
+- [x] **Brand DNA + assets** — upload a logo + long-form brand DNA per brand
+  (stored in MongoDB GridFS). DNA is injected into every agent prompt; the logo
+  is composited onto every generated image (sharp). TikTok/IG/X publishing via
+  Blotato with per-brand account ids set in the cockpit.
+- [ ] **Closed-loop measure** — ingest real KPIs for prior posts and feed them
+  back into seo/brief so each cycle improves on what performed.
+- [ ] **Funnel** — post-publish landing page + email sequence via a pluggable
+  connector (Kartra / ConvertKit / Mailchimp).

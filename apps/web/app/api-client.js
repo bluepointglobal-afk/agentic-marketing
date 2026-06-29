@@ -32,6 +32,16 @@ export const apiCreateBrand = (brand) =>
 export const apiUpdateBrand = (id, patch) =>
   req(`/api/brands/${id}`, { method: "PUT", body: JSON.stringify(patch) });
 
+// Multipart upload of a brand asset (logo/image) → { url }. Browser sets the
+// multipart boundary, so we must NOT set content-type here.
+export async function apiUploadAsset(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(BASE + "/api/assets", { method: "POST", body: fd });
+  if (!res.ok) throw new Error(`upload failed (${res.status})`);
+  return res.json();
+}
+
 /* ── runs ── */
 export const apiStartRun = (brandId) =>
   req("/api/runs", { method: "POST", body: JSON.stringify({ brandId }) });

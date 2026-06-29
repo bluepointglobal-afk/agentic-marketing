@@ -36,6 +36,8 @@ const EDITABLE = [
   "cadence",
   "publishTarget",
   "gateThreshold",
+  "brandDna",
+  "assets",
   "blotatoAccounts",
 ] as const;
 

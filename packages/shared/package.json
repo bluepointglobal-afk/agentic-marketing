@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./db": "./src/db.ts",
     "./models": "./src/models.ts",
-    "./queue": "./src/queue.ts"
+    "./queue": "./src/queue.ts",
+    "./assets": "./src/assets.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
