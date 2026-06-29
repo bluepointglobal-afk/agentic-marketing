@@ -10,6 +10,11 @@ loadEnv({ path: resolve(here, "../../.env") });
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Standalone output for a small, self-contained production container.
+  output: "standalone",
+  // Trace files from the monorepo root so workspace deps (@pipeline/shared and
+  // its transitive deps) are included in the standalone bundle.
+  outputFileTracingRoot: resolve(here, "../../"),
   // Compile the shared TS source package directly (no prebuild step).
   transpilePackages: ["@pipeline/shared"],
   // Mongoose/bullmq are server-only; keep them external to the server bundle.

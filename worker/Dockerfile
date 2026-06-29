@@ -1,11 +1,14 @@
 # ──────────────────────────────────────────────────────────────────────────
 # Worker image — the standalone Agent SDK pipeline consumer.
 # This is a LONG-RUNNING process; deploy it to a persistent host
-# (Railway / Render / Fly / Azure Container App), NOT a serverless function:
+# (Vultr VPS via Coolify / Railway / Render / Fly), NOT a serverless function:
 # Agent SDK runs take minutes and would time out on serverless.
 #
 # Build from the REPO ROOT (the build context must include the workspaces):
 #   docker build -f worker/Dockerfile -t pipeline-worker .
+#
+# Runs as a pure worker (no exposed port). A HEALTHCHECK monitors Redis
+# reachability + a freshness heartbeat so Coolify can restart a stalled run.
 # ──────────────────────────────────────────────────────────────────────────
 
 FROM node:22-slim AS deps
@@ -34,6 +37,12 @@ COPY worker ./worker
 # Run as the unprivileged node user.
 USER node
 WORKDIR /app/worker
+
+# Liveness: fail if Redis is unreachable OR the worker heartbeat goes stale.
+# start-period gives the process time to connect before checks count.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+  CMD ["node", "healthcheck.mjs"]
+
 # `npm run start` → `tsx src/index.ts` (tsx is a runtime dep and also resolves
 # the @pipeline/shared TypeScript source package).
 CMD ["npm", "run", "start"]

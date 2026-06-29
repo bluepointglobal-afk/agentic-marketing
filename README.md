@@ -152,6 +152,11 @@ Stop infrastructure with `npm run infra:down`.
 Two deployables: the **Next.js app** and the **worker**. They share MongoDB +
 Redis (use managed instances in production, e.g. MongoDB Atlas + Upstash/managed Redis).
 
+> **Production (Vultr + Coolify):** see **[COOLIFY_DEPLOYMENT.md](./COOLIFY_DEPLOYMENT.md)**
+> for the two-service setup — `apps/web/Dockerfile` (port 3000, standalone) and
+> `worker/Dockerfile` (no port, healthchecked) — with the exact env vars and
+> `unless-stopped` restart policy.
+
 ### App
 
 Deploy `apps/web` anywhere that runs Next.js (Vercel, a container, etc.). Set

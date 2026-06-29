@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { Worker, type Job } from "bullmq";
 import { connectMongo } from "@pipeline/shared/db";
 import {
@@ -66,6 +67,20 @@ async function main(): Promise<void> {
     await startScheduler();
   }
 
+  // Liveness heartbeat: the Docker HEALTHCHECK verifies this file stays fresh,
+  // catching an event-loop stall even while the process is technically alive.
+  const heartbeatFile = process.env.WORKER_HEARTBEAT_FILE ?? "/tmp/worker-heartbeat";
+  const writeHeartbeat = () => {
+    try {
+      writeFileSync(heartbeatFile, String(Date.now()));
+    } catch (err) {
+      logger.warn({ err }, "heartbeat write failed");
+    }
+  };
+  writeHeartbeat();
+  const heartbeat = setInterval(writeHeartbeat, 15_000);
+  heartbeat.unref();
+
   logger.info("worker ready — consuming jobs");
 
   let shuttingDown = false;
@@ -73,6 +88,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info({ signal }, "shutting down");
+    clearInterval(heartbeat);
     try {
       await worker.close();
       await stopScheduler();
