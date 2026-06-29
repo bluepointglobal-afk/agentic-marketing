@@ -151,6 +151,27 @@ export interface FunnelOutput {
   pushedTo: string | null;
 }
 
+/**
+ * Landing page layout generated alongside the social post in the CREATE stage.
+ * Served to the public landing route and used to hydrate page metadata.
+ */
+export interface LandingVariations {
+  headline: string;
+  subheadline: string;
+  heroCta: string;
+  features: { title: string; body: string }[];
+  seoTitle: string;
+  seoDescription: string;
+  optimizedKeywords: string[];
+}
+
+/** 3-part onboarding/nurture email sequence generated in the CREATE stage. */
+export interface EmailSequence {
+  email1: { subject: string; body: string };
+  email2: { subject: string; body: string };
+  email3: { subject: string; body: string };
+}
+
 /** Draft produced at the gate — shape matches run.draft in the cockpit. */
 export interface Draft {
   title: string;
@@ -160,6 +181,9 @@ export interface Draft {
   score: number;
   /** Generated creative (hosted or data URL); shown in the gate card. */
   imageUrl?: string | null;
+  /** Omnichannel collateral generated with the social post (Wave 3). */
+  landingVariations?: LandingVariations;
+  emailSequence?: EmailSequence;
 }
 
 /** A single stage's live status within a run, for the cockpit rail. */

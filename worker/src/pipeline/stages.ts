@@ -1,18 +1,14 @@
 import type { Brand, Draft, BrandKpis } from "@pipeline/shared";
 import { BrandModel } from "@pipeline/shared/models";
-import { isStorageConfigured, putObject, makeKey } from "@pipeline/shared/storage";
 import { config } from "../config.js";
 import type { Logger } from "../logger.js";
 import { gatherKpis } from "../metrics/index.js";
 import { runAgentStage } from "./sdk.js";
-import {
-  SEO_RESEARCHER,
-  BRIEF_WRITER,
-  BRAND_WRITER,
-  BRAND_QA,
-  brandVoiceBlock,
-} from "./agents.js";
-import { generateImage } from "./image.js";
+import { SEO_RESEARCHER, BRIEF_WRITER, BRAND_QA, brandVoiceBlock } from "./agents.js";
+
+// CREATE lives in its own module (the omnichannel generator); re-export so the
+// runner keeps importing every stage from "./stages.js".
+export { runCreate } from "./create.js";
 
 /* ───────────────────────── stage output types ───────────────────────── */
 
@@ -178,79 +174,6 @@ export async function runBrief(
       '{"title": string, "angle": string, "outline": string[], "targetKeywords": string[], "notes": string}',
     log,
   });
-}
-
-/* ───────────────────────── create ───────────────────────── */
-export async function runCreate(
-  brand: Brand,
-  ctx: PipelineContext,
-  log: Logger,
-): Promise<StageOutput<CreateData>> {
-  if (isStub()) {
-    await delay(950);
-    const seed = brand.keywords[0] ?? "your topic";
-    const draft: Omit<Draft, "score"> = {
-      title: ctx.brief?.title ?? `How to approach ${seed}`,
-      meta: `A practical, in-voice guide for ${brand.audience.toLowerCase()}.`,
-      body:
-        `Opening that lands the angle, written in ${brand.name}'s voice — ` +
-        "warm, specific, and shaped around the search intent the SEO stage " +
-        "surfaced. (Stub driver output; set PIPELINE_DRIVER=agent for the real writer.)",
-      keywords: ctx.brief?.targetKeywords ?? brand.keywords.slice(0, 3),
-    };
-    return { data: { draft, imageUrl: null }, costUsd: 0 };
-  }
-
-  const instruction =
-    `${brandVoiceBlock(brand)}\n\n` +
-    `Brief: ${JSON.stringify(ctx.brief ?? {})}\n\n` +
-    "Write the hero draft from this brief, locked to the brand voice.";
-
-  const { data, costUsd } = await runAgentStage<Omit<Draft, "score">>({
-    agentName: BRAND_WRITER,
-    instruction,
-    schemaHint:
-      '{"title": string, "meta": string, "body": string, "keywords": string[]}',
-    log,
-  });
-
-  // Generate the creative for the post (provider per brand.imageModel).
-  let imageUrl: string | null = null;
-  try {
-    const palette = brand.assets?.palette?.length
-      ? ` Brand colours: ${brand.assets.palette.join(", ")}.`
-      : "";
-    const imagePrompt =
-      `Brand creative for "${data.title}". ${brand.positioning}. ` +
-      `Audience: ${brand.audience}. Style: on-brand, clean.${palette}`;
-    const img = await generateImage(brand, imagePrompt, log);
-    imageUrl = img.url;
-
-    // Composite the brand logo onto the creative when both are available.
-    let finalBuffer = img.buffer;
-    if (finalBuffer && brand.assets?.logoUrl) {
-      const { compositeLogo } = await import("./compositing.js");
-      finalBuffer = await compositeLogo(
-        finalBuffer,
-        brand.assets.logoUrl,
-        brand.assets.logoPosition ?? "bottom-right",
-        log,
-      );
-    }
-
-    // Persist the final creative: absolute URL on object storage (R2/Vultr)
-    // when configured, else an inline data URL for local dev.
-    if (finalBuffer) {
-      imageUrl = isStorageConfigured()
-        ? await putObject(makeKey("generated", "image/png"), finalBuffer, "image/png")
-        : `data:image/png;base64,${finalBuffer.toString("base64")}`;
-    }
-  } catch (err) {
-    // Image failure must not fail the whole run.
-    log.error({ err }, "image generation failed; continuing without image");
-  }
-
-  return { data: { draft: data, imageUrl }, costUsd };
 }
 
 /* ───────────────────────── gate (brand-qa) ───────────────────────── */

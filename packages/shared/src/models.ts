@@ -5,6 +5,7 @@ import type { Model, InferSchemaType } from "mongoose";
 const { Schema, model, models } = mongoose;
 import type {
   Brand,
+  Draft,
   Run,
   RunStatus,
   StageStatus,
@@ -98,6 +99,9 @@ const DraftSchema = new Schema(
     // cockpit gate card but persisted for publish + auditing).
     imageUrl: { type: String, default: null },
     variants: { type: Schema.Types.Mixed, default: null },
+    // Omnichannel collateral generated with the social post (Wave 3).
+    landingVariations: { type: Schema.Types.Mixed, default: null },
+    emailSequence: { type: Schema.Types.Mixed, default: null },
   },
   { _id: false },
 );
@@ -214,6 +218,11 @@ export function toRun(doc: RunDoc & Record<string, unknown>): Run {
         keywords: doc.draft.keywords ?? [],
         score: doc.draft.score ?? 0,
         imageUrl: (doc.draft as { imageUrl?: string | null }).imageUrl ?? null,
+        landingVariations:
+          (doc.draft as { landingVariations?: Draft["landingVariations"] }).landingVariations ??
+          undefined,
+        emailSequence:
+          (doc.draft as { emailSequence?: Draft["emailSequence"] }).emailSequence ?? undefined,
       }
     : null;
 

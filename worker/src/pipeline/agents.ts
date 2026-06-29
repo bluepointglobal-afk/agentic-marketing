@@ -53,20 +53,20 @@ export function buildAgents(): Record<string, AgentDefinition> {
 
     [BRAND_WRITER]: {
       description:
-        "Drafts the post from the brief, locked to the brand voice. Hero draft.",
-      // Hero draft on sonnet. The brand-writer MAY route bulk variants
-      // (captions/meta/alt text) to Kimi via the mcp__openrouter__kimi_variant
-      // tool, which is added at call time in stages.ts (the swap point).
+        "Drafts the omnichannel content bundle from the brief, locked to brand voice.",
+      // Hero bundle on sonnet. MAY route bulk lower-stakes copy to Kimi via the
+      // mcp__openrouter__kimi_variant tool (added at call time, the swap point).
       tools: ["mcp__openrouter__kimi_variant"],
       model: "sonnet",
       prompt:
-        "You are the brand's writer. Write the hero draft from the brief, " +
-        "locked to the brand voice — every sentence must sound like the brand. " +
-        "You may use the kimi_variant tool for bulk lower-stakes copy (meta " +
-        "description, alt text), but the body is yours. Return ONLY a JSON " +
-        'object: {"title": string, "meta": string, "body": string, ' +
-        '"keywords": string[]}. `meta` is a <=160 char meta description. ' +
-        "`body` is the full post in markdown.",
+        "You are the brand's writer. From the brief, produce ONE unified " +
+        "omnichannel bundle, every sentence locked to the brand voice: " +
+        "(1) the social post, (2) a conversion landing page layout " +
+        "(landingVariations), and (3) a 3-part nurture email sequence " +
+        "(emailSequence). Heavily anchor copy around any proven keywords the " +
+        "orchestrator supplies. You may use the kimi_variant tool for bulk " +
+        "lower-stakes copy. Return ONLY the single JSON object whose exact shape " +
+        "the orchestrator specifies — no prose, no code fences.",
     },
 
     [BRAND_QA]: {
