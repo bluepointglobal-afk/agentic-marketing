@@ -121,8 +121,17 @@ async function publishToBlotato(
   const apiKey = process.env.BLOTATO_API_KEY;
   if (!apiKey) throw new Error("BLOTATO_API_KEY not set");
 
-  const hosted = await uploadMedia(imageUrl, apiKey, log);
-  const mediaUrls = hosted ? [hosted] : [];
+  // An absolute (R2/Vultr) URL goes straight into mediaUrls — Blotato fetches
+  // it. A data URL (local-dev fallback) is re-hosted via Blotato /v2/media.
+  let mediaUrls: string[] = [];
+  if (imageUrl) {
+    if (/^https?:\/\//.test(imageUrl)) {
+      mediaUrls = [imageUrl];
+    } else {
+      const hosted = await uploadMedia(imageUrl, apiKey, log);
+      if (hosted) mediaUrls = [hosted];
+    }
+  }
   const text = buildCaption(draft);
 
   // Unique Blotato platforms from the brand's channels.

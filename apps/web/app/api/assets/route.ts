@@ -18,12 +18,14 @@ export async function POST(req: Request): Promise<Response> {
     if (file.size > MAX_BYTES) return badRequest("File too large (max 8MB)");
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const id = await uploadAsset(
+    // Returns an absolute object-storage URL (R2/Vultr) when configured, else a
+    // GridFS-backed /api/assets/:id URL for local dev.
+    const url = await uploadAsset(
       buffer,
       file.name || "asset",
       file.type || "application/octet-stream",
     );
-    return json({ url: `/api/assets/${id}` }, 201);
+    return json({ url }, 201);
   } catch (err) {
     console.error("POST /api/assets failed", err);
     return serverError();

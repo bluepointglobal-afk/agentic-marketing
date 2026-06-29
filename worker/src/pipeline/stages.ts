@@ -1,5 +1,6 @@
 import type { Brand, Draft, BrandKpis } from "@pipeline/shared";
 import { BrandModel } from "@pipeline/shared/models";
+import { isStorageConfigured, putObject, makeKey } from "@pipeline/shared/storage";
 import { config } from "../config.js";
 import type { Logger } from "../logger.js";
 import { gatherKpis } from "../metrics/index.js";
@@ -226,15 +227,23 @@ export async function runCreate(
     imageUrl = img.url;
 
     // Composite the brand logo onto the creative when both are available.
-    if (img.buffer && brand.assets?.logoUrl) {
+    let finalBuffer = img.buffer;
+    if (finalBuffer && brand.assets?.logoUrl) {
       const { compositeLogo } = await import("./compositing.js");
-      const final = await compositeLogo(
-        img.buffer,
+      finalBuffer = await compositeLogo(
+        finalBuffer,
         brand.assets.logoUrl,
         brand.assets.logoPosition ?? "bottom-right",
         log,
       );
-      imageUrl = `data:image/png;base64,${final.toString("base64")}`;
+    }
+
+    // Persist the final creative: absolute URL on object storage (R2/Vultr)
+    // when configured, else an inline data URL for local dev.
+    if (finalBuffer) {
+      imageUrl = isStorageConfigured()
+        ? await putObject(makeKey("generated", "image/png"), finalBuffer, "image/png")
+        : `data:image/png;base64,${finalBuffer.toString("base64")}`;
     }
   } catch (err) {
     // Image failure must not fail the whole run.

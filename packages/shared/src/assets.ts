@@ -1,8 +1,11 @@
 import { connectMongo, mongoose } from "./db";
+import { isStorageConfigured, putObject, makeKey } from "./storage";
 
 /**
- * Brand asset storage on GridFS (self-contained — no external bucket).
- * The web app uploads/serves; the worker reads logo bytes for compositing.
+ * Brand asset storage. Primary path is S3-compatible object storage (R2/Vultr)
+ * returning an absolute URL; when storage isn't configured (local dev) it falls
+ * back to MongoDB GridFS served via /api/assets/:id. The worker reads logo bytes
+ * for compositing via loadAssetBuffer, which handles both.
  */
 
 const BUCKET = "assets";
@@ -14,13 +17,23 @@ async function getBucket() {
   return new mongoose.mongo.GridFSBucket(db, { bucketName: BUCKET });
 }
 
+/**
+ * Store an uploaded asset and return its URL — an absolute object-storage URL
+ * when S3/R2 is configured, otherwise a GridFS-backed /api/assets/:id URL.
+ */
 export async function uploadAsset(
   buffer: Buffer,
   filename: string,
   contentType: string,
 ): Promise<string> {
+  if (isStorageConfigured()) {
+    const key = makeKey("assets", contentType, filename);
+    return putObject(key, buffer, contentType);
+  }
+
+  // Local-dev fallback: GridFS.
   const bucket = await getBucket();
-  return await new Promise<string>((resolve, reject) => {
+  const id = await new Promise<string>((resolve, reject) => {
     const stream = bucket.openUploadStream(filename, {
       contentType,
       metadata: { contentType },
@@ -29,6 +42,7 @@ export async function uploadAsset(
     stream.on("finish", () => resolve(String(stream.id)));
     stream.end(buffer);
   });
+  return `/api/assets/${id}`;
 }
 
 export interface AssetData {

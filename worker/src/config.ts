@@ -21,6 +21,8 @@ export const config = {
   redisUrl: optional("REDIS_URL", "redis://localhost:6379"),
   queueName: optional("RUN_QUEUE_NAME", "brand-runs"),
   concurrency: Number(optional("WORKER_CONCURRENCY", "2")),
+  // BullMQ job lock — long enough to span a full multi-agent stage cascade.
+  lockDurationMs: Number(optional("WORKER_LOCK_DURATION_MS", "300000")),
   logLevel: optional("LOG_LEVEL", "info"),
 
   /**

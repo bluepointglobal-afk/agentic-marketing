@@ -41,7 +41,17 @@ async function main(): Promise<void> {
     async (job: Job<RunJobData>) => {
       await processRunJob(job);
     },
-    { connection: bullConnection(), concurrency: config.concurrency },
+    {
+      connection: bullConnection(),
+      concurrency: config.concurrency,
+      // Multi-agent stages (image/text generation) run for minutes. An explicit
+      // long lock prevents BullMQ from considering the job stalled and handing
+      // it to another worker mid-cascade. BullMQ auto-renews the lock every
+      // lockDuration/2 while the job is alive.
+      lockDuration: config.lockDurationMs,
+      stalledInterval: config.lockDurationMs,
+      maxStalledCount: 2,
+    },
   );
 
   worker.on("completed", (job) =>

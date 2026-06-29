@@ -30,8 +30,13 @@ export async function connectMongo(uri?: string): Promise<typeof mongoose> {
   if (!cache.promise) {
     mongoose.set("strictQuery", true);
     cache.promise = mongoose.connect(mongoUri, {
-      // Reasonable defaults; the pool is shared across the process.
+      // Atlas-friendly pool + reliability options. The pool is shared across
+      // the process (app server or worker).
       serverSelectionTimeoutMS: 10_000,
+      maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE ?? "10"),
+      minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE ?? "0"),
+      retryWrites: true,
+      appName: process.env.MONGO_APP_NAME ?? "agentic-marketing",
     });
   }
 
