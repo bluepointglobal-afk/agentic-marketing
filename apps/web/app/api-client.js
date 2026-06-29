@@ -65,5 +65,9 @@ export function mapRun(sr) {
   const current = stageStatus.findIndex((st) => st === "running");
   const outcome =
     sr.status === "published" ? "published" : done ? "rejected" : null;
-  return { stageStatus, current, draft: sr.draft || null, awaiting, done, outcome };
+  return {
+    stageStatus, current, awaiting, done, outcome,
+    draft: sr.draft || null,
+    funnel: sr.funnel || null,
+  };
 }

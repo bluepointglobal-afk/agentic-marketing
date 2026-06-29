@@ -39,6 +39,7 @@ const EDITABLE = [
   "brandDna",
   "assets",
   "siteUrl",
+  "funnel",
   "blotatoAccounts",
 ] as const;
 

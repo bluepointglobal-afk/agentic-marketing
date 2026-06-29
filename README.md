@@ -236,5 +236,8 @@ stage marks the run `errored` and never hangs.
   gather KPIs, persist a snapshot on the brand, and feed "double down / refresh"
   guidance into seo + brief so each cycle improves on what performed. Insights
   shown on the brand page.
-- [ ] **Funnel** — post-publish landing page + email sequence via a pluggable
-  connector (Kartra / ConvertKit / Mailchimp).
+- [x] **Funnel** — after publish, a funnel-architect agent generates a landing
+  page + nurture email sequence; a pluggable connector pushes it: **store**
+  (save + review, no creds), **webhook** (POST anywhere — Zapier/Make/n8n), or
+  **kartra** (scaffold). Toggle + provider per brand in the cockpit; output shown
+  on the brand page.

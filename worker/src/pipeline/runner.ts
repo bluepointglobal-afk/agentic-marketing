@@ -206,6 +206,20 @@ async function runPublishStage(
     title: draft.title,
   });
   log.info({ target: result.target }, "published");
+
+  // Funnel: generate landing page + email sequence and push via the connector.
+  // Failure here never un-publishes the post.
+  if (brand.funnel?.enabled) {
+    try {
+      const { runFunnel } = await import("./funnel.js");
+      const { output, costUsd } = await runFunnel(brand, draft, log);
+      await addCost(runId, costUsd);
+      await RunModel.updateOne({ _id: runId }, { $set: { funnel: output } });
+      log.info({ pushedTo: output.pushedTo, emails: output.emails.length }, "funnel generated");
+    } catch (err) {
+      log.error({ err }, "funnel step failed; post still published");
+    }
+  }
 }
 
 /* ───────────────────── failure handling ───────────────────── */

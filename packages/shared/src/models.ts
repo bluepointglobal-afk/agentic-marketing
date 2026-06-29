@@ -64,6 +64,8 @@ const BrandSchema = new Schema(
     siteUrl: { type: String, default: "" },
     // Latest KPI snapshot from the measure stage (server-owned).
     kpis: { type: Schema.Types.Mixed, default: null },
+    // Post-publish funnel config (landing + email sequence).
+    funnel: { type: Schema.Types.Mixed, default: {} },
     // Blotato account ids keyed by platform (tiktok/instagram/twitter/facebook).
     blotatoAccounts: { type: Schema.Types.Mixed, default: {} },
     runs: { type: [RunSummarySchema], default: [] },
@@ -132,6 +134,8 @@ const RunSchema = new Schema(
     costUsd: { type: Number, default: null },
     // Where publish sent the content (audit trail).
     publishedTo: { type: String, default: null },
+    // Funnel collateral generated after publish (landing + emails).
+    funnel: { type: Schema.Types.Mixed, default: null },
     error: { type: String, default: null },
   },
   { timestamps: true },
@@ -168,6 +172,7 @@ export function toBrand(doc: BrandDoc & Record<string, unknown>): Brand {
     assets: (doc as { assets?: Brand["assets"] }).assets ?? {},
     siteUrl: (doc as { siteUrl?: string }).siteUrl ?? "",
     kpis: (doc as { kpis?: Brand["kpis"] }).kpis ?? undefined,
+    funnel: (doc as { funnel?: Brand["funnel"] }).funnel ?? {},
     blotatoAccounts:
       (doc as { blotatoAccounts?: Record<string, string> }).blotatoAccounts ?? {},
     runs: (doc.runs ?? []).map((r) => ({
@@ -212,6 +217,7 @@ export function toRun(doc: RunDoc & Record<string, unknown>): Run {
     draft,
     outcome: (doc.outcome ?? null) as RunOutcome | null,
     costUsd: doc.costUsd ?? null,
+    funnel: (doc as { funnel?: Run["funnel"] }).funnel ?? null,
     createdAt: (doc as { createdAt?: Date }).createdAt?.toISOString() ?? "",
     updatedAt: (doc as { updatedAt?: Date }).updatedAt?.toISOString() ?? "",
   };

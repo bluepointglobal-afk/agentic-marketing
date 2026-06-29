@@ -14,6 +14,7 @@ export const SEO_RESEARCHER = "seo-researcher";
 export const BRIEF_WRITER = "brief-writer";
 export const BRAND_WRITER = "brand-writer";
 export const BRAND_QA = "brand-qa";
+export const FUNNEL_ARCHITECT = "funnel-architect";
 
 export function buildAgents(): Record<string, AgentDefinition> {
   return {
@@ -79,6 +80,22 @@ export function buildAgents(): Record<string, AgentDefinition> {
         "is flawless on-voice; deduct for any hype, jargon, off-tone phrasing, " +
         "or violated nevers. Return ONLY a JSON object: " +
         '{"score": number, "reasons": string}.',
+    },
+
+    [FUNNEL_ARCHITECT]: {
+      description:
+        "Turns a published post into a landing page + nurture email sequence.",
+      tools: [],
+      model: "opus",
+      prompt:
+        "You are a conversion-focused funnel architect. From the published post " +
+        "and brand context, write (1) a landing page that converts the post's " +
+        "audience, and (2) a 3–5 email nurture sequence that moves them toward " +
+        "the brand's offer. Stay locked to the brand voice; one clear next step " +
+        "throughout; no hype, no overpromising. Return ONLY a JSON object: " +
+        '{"landingPage": {"headline": string, "subhead": string, ' +
+        '"sections": [{"heading": string, "body": string}], "cta": string}, ' +
+        '"emails": [{"subject": string, "body": string}]}.',
     },
   };
 }

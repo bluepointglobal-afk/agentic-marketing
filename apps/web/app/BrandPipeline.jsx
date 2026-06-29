@@ -463,6 +463,15 @@ function BrandConsole({ brand, onBack, onLog }) {
               {run.outcome === "published"
                 ? <><CircleCheck size={26} /><h3>Published</h3><p className="muted">The worker pushed to {publishLabel(brand.publishTarget)}.</p></>
                 : <><CircleX size={26} /><h3>Held at the gate</h3><p className="muted">Below brand-voice threshold. Nothing was published.</p></>}
+              {run.outcome === "published" && run.funnel && (
+                <div className="funnel-summary">
+                  <div className="insights-label"><Send size={12} /> Funnel · {run.funnel.pushedTo}</div>
+                  <p className="funnel-headline">{run.funnel.landingPage?.headline}</p>
+                  <p className="muted small">
+                    {(run.funnel.emails?.length || 0)} email{(run.funnel.emails?.length || 0) !== 1 ? "s" : ""} in the nurture sequence
+                  </p>
+                </div>
+              )}
             </div>
           ) : running ? (
             <div className="card waiting">
@@ -553,6 +562,7 @@ function BrandEditor({ brand, onCancel, onSaved }) {
     brandDna: brand.brandDna || "",
     assets: brand.assets || {},
     siteUrl: brand.siteUrl || "",
+    funnel: brand.funnel || { enabled: false, provider: "store" },
     blotatoAccounts: brand.blotatoAccounts || {},
   });
   const [saving, setSaving] = useState(false);
@@ -699,6 +709,23 @@ function BrandEditor({ brand, onCancel, onSaved }) {
             )}
           </Field>
         )}
+
+        <Field label="Funnel" hint="After publish, generate a landing page + email sequence and push it.">
+          <div className="seg">
+            <button className={`seg-btn ${!d.funnel.enabled ? "on" : ""}`}
+              onClick={() => set({ funnel: { ...d.funnel, enabled: false } })}>Off</button>
+            <button className={`seg-btn ${d.funnel.enabled ? "on" : ""}`}
+              onClick={() => set({ funnel: { ...d.funnel, enabled: true } })}>On</button>
+          </div>
+          {d.funnel.enabled && (
+            <div className="seg" style={{ marginTop: 8 }}>
+              {[["store", "Store only"], ["webhook", "Webhook"], ["kartra", "Kartra"]].map(([v, l]) => (
+                <button key={v} className={`seg-btn ${(d.funnel.provider || "store") === v ? "on" : ""}`}
+                  onClick={() => set({ funnel: { ...d.funnel, provider: v } })}>{l}</button>
+              ))}
+            </div>
+          )}
+        </Field>
 
         <Field label={`Brand-voice gate: ${d.gateThreshold}`} hint="Minimum score before a draft can publish.">
           <input type="range" min={60} max={100} value={d.gateThreshold}
@@ -903,6 +930,8 @@ function Style() {
 .insights { margin-top:14px; padding-top:13px; border-top:1px solid var(--line); }
 .insights-label { font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); display:flex; align-items:center; gap:5px; margin-bottom:7px; }
 .insights-text { font-size:12.5px; line-height:1.55; color:#384640; margin:0 0 9px; }
+.funnel-summary { width:100%; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); text-align:left; }
+.funnel-headline { font-family:'Fraunces',serif; font-size:15px; margin:6px 0 4px; color:var(--text); }
 .draft .score-row { display:flex; align-items:baseline; gap:7px; margin-bottom:10px; }
 .score { font-family:'Fraunces',serif; font-size:34px; color:var(--accent); line-height:1; }
 .draft-title { font-family:'Fraunces',serif; font-size:18px; margin:0 0 6px; font-weight:500; }
