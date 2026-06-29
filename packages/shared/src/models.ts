@@ -102,6 +102,15 @@ const DraftSchema = new Schema(
   { _id: false },
 );
 
+const PublishedPostSchema = new Schema(
+  {
+    platform: { type: String, required: true },
+    postId: { type: String, required: true },
+    url: { type: String, default: null },
+  },
+  { _id: false },
+);
+
 const RunSchema = new Schema(
   {
     brandId: { type: String, required: true, index: true },
@@ -134,6 +143,8 @@ const RunSchema = new Schema(
     costUsd: { type: Number, default: null },
     // Where publish sent the content (audit trail).
     publishedTo: { type: String, default: null },
+    // Live posts created at publish — analytics keys for the measure stage.
+    published: { type: [PublishedPostSchema], default: [] },
     // Funnel collateral generated after publish (landing + emails).
     funnel: { type: Schema.Types.Mixed, default: null },
     error: { type: String, default: null },
@@ -217,6 +228,7 @@ export function toRun(doc: RunDoc & Record<string, unknown>): Run {
     draft,
     outcome: (doc.outcome ?? null) as RunOutcome | null,
     costUsd: doc.costUsd ?? null,
+    published: (doc as { published?: Run["published"] }).published ?? [],
     funnel: (doc as { funnel?: Run["funnel"] }).funnel ?? null,
     createdAt: (doc as { createdAt?: Date }).createdAt?.toISOString() ?? "",
     updatedAt: (doc as { updatedAt?: Date }).updatedAt?.toISOString() ?? "",

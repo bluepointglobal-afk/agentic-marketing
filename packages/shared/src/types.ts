@@ -73,7 +73,23 @@ export interface MetricItem {
   impressions?: number;
   ctr?: number;
   position?: number;
+  /** Aggregate engagement (likes + link clicks) for social items. */
   engagement?: number;
+  likes?: number;
+  /** Outbound link clicks. */
+  linkClicks?: number;
+  /** Hook conversion = link clicks / impressions (0–1). */
+  hookConversion?: number;
+}
+
+/** A live post created by the publish stage (one per platform). */
+export interface PublishedPost {
+  /** Blotato platform (tiktok | instagram | twitter | facebook | ...). */
+  platform: string;
+  /** Blotato post/submission id — used to query analytics later. */
+  postId: string;
+  /** Live destination URL, when Blotato returns one. */
+  url: string | null;
 }
 
 /**
@@ -93,6 +109,15 @@ export interface BrandKpis {
   topQueries: MetricItem[];
   /** One-paragraph agent-readable insight. */
   summary: string;
+  /** Aggregate social engagement vectors (from Blotato analytics). */
+  engagement?: {
+    posts: number;
+    impressions: number;
+    likes: number;
+    linkClicks: number;
+    /** Best-converting hooks (post titles) by link-click rate. */
+    topHooks: { hook: string; conversion: number }[];
+  };
 }
 
 /** Where the post-publish funnel (landing + emails) gets sent. */
@@ -204,6 +229,8 @@ export interface Run {
   draft: Draft | null;
   outcome: RunOutcome | null;
   costUsd: number | null;
+  /** Live posts created at publish (per platform) — analytics keys for measure. */
+  published?: PublishedPost[];
   /** Funnel collateral generated after publish (landing + emails). */
   funnel?: FunnelOutput | null;
   createdAt: string;

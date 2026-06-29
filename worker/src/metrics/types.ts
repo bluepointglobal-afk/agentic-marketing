@@ -8,7 +8,7 @@ import type { Logger } from "../logger.js";
  */
 
 export interface MetricsSummary {
-  /** Provider name (e.g. "internal-history", "gsc"). */
+  /** Provider name (e.g. "internal-history", "gsc", "blotato"). */
   source: string;
   /** Top measured queries/terms, best-first. */
   topQueries: MetricItem[];
@@ -18,6 +18,14 @@ export interface MetricsSummary {
   refresh: string[];
   /** Short agent-readable insight from this source. */
   notes: string;
+  /** Aggregate social engagement (Blotato). Merged into BrandKpis.engagement. */
+  engagement?: {
+    posts: number;
+    impressions: number;
+    likes: number;
+    linkClicks: number;
+    topHooks: { hook: string; conversion: number }[];
+  };
 }
 
 export interface MetricsProvider {

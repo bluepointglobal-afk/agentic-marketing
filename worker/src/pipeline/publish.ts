@@ -1,4 +1,4 @@
-import type { Brand, Draft, ChannelId } from "@pipeline/shared";
+import type { Brand, Draft, ChannelId, PublishedPost } from "@pipeline/shared";
 import type { Logger } from "../logger.js";
 
 /**
@@ -11,6 +11,21 @@ import type { Logger } from "../logger.js";
 export interface PublishResult {
   /** Human label of where it went (audit trail + cockpit copy). */
   target: string;
+  /** Live posts created (per platform) — analytics keys for the measure stage. */
+  published: PublishedPost[];
+}
+
+/** Pull a post id + url out of Blotato's publish response, defensively. */
+function extractPublished(platform: string, data: unknown): PublishedPost {
+  const d = (data ?? {}) as Record<string, unknown>;
+  const post = (d.post ?? d.data ?? {}) as Record<string, unknown>;
+  const postId =
+    d.id ?? d.postId ?? d.submissionId ?? post.id ?? post.postId ?? "";
+  const url =
+    (d.url ?? d.postUrl ?? d.permalink ?? post.url ?? post.permalink ?? null) as
+      | string
+      | null;
+  return { platform, postId: String(postId ?? ""), url };
 }
 
 export async function publishContent(
@@ -22,7 +37,7 @@ export async function publishContent(
   switch (brand.publishTarget) {
     case "draft":
       log.info("publish target=draft — held as draft, nothing pushed");
-      return { target: "drafts" };
+      return { target: "drafts", published: [] };
 
     case "blotato":
       return publishToBlotato(brand, draft, imageUrl, log);
@@ -32,7 +47,7 @@ export async function publishContent(
 
     default:
       log.warn({ target: brand.publishTarget }, "unknown publish target; holding as draft");
-      return { target: "drafts" };
+      return { target: "drafts", published: [] };
   }
 }
 
@@ -151,6 +166,7 @@ async function publishToBlotato(
 
   const posted: string[] = [];
   const skipped: string[] = [];
+  const published: PublishedPost[] = [];
 
   for (const platform of platforms) {
     // Per-brand account id wins; env var is a fallback for single-account setups.
@@ -185,7 +201,11 @@ async function publishToBlotato(
       const errText = (await res.text()).slice(0, 400);
       throw new Error(`Blotato ${platform} post failed (${res.status}): ${errText}`);
     }
-    log.info({ platform, accountId }, "posted to Blotato");
+    // Capture the live post id + url so the measure stage can fetch analytics.
+    const data = await res.json().catch(() => ({}));
+    const entry = extractPublished(platform, data);
+    published.push(entry);
+    log.info({ platform, accountId, postId: entry.postId }, "posted to Blotato");
     posted.push(platform);
   }
 
@@ -196,7 +216,7 @@ async function publishToBlotato(
     );
   }
 
-  return { target: `Blotato (${posted.join(", ")})` };
+  return { target: `Blotato (${posted.join(", ")})`, published };
 }
 
 /* ───────────────────────── Generic CMS ───────────────────────── */
@@ -230,5 +250,5 @@ async function publishToCms(
     throw new Error(`cms ${res.status}: ${body.slice(0, 300)}`);
   }
   log.info("published to CMS");
-  return { target: "site / CMS" };
+  return { target: "site / CMS", published: [] };
 }

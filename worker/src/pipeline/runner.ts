@@ -197,7 +197,13 @@ async function runPublishStage(
   await setRunStatus(runId, "published", log);
   await RunModel.updateOne(
     { _id: runId },
-    { $set: { outcome: "published", publishedTo: result.target } },
+    {
+      $set: {
+        outcome: "published",
+        publishedTo: result.target,
+        published: result.published ?? [],
+      },
+    },
   );
   await appendRunSummary(brand.id, {
     id: runId,

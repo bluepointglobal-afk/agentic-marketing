@@ -3,12 +3,17 @@ import type { Logger } from "../logger.js";
 import type { MetricsProvider, MetricsSummary } from "./types.js";
 import { internalHistoryProvider } from "./internalHistory.js";
 import { gscProvider } from "./gsc.js";
+import { blotatoProvider } from "./blotato.js";
 
 /**
- * Registered metrics providers, in priority order. Add Blotato analytics / GA4
- * here later — the measure stage merges whatever is configured.
+ * Registered metrics providers, in priority order. The measure stage merges
+ * whatever is configured. (Add GA4 here later — same interface.)
  */
-const PROVIDERS: MetricsProvider[] = [internalHistoryProvider, gscProvider];
+const PROVIDERS: MetricsProvider[] = [
+  internalHistoryProvider,
+  gscProvider,
+  blotatoProvider,
+];
 
 const LOOKBACK_DAYS = 28;
 
@@ -32,6 +37,8 @@ export async function gatherKpis(brand: Brand, log: Logger): Promise<BrandKpis> 
   const summary =
     summaries.map((s) => s.notes).filter(Boolean).join(" ") ||
     "No prior performance yet — first run for this brand.";
+  // Real engagement vectors come from the Blotato provider when present.
+  const engagement = summaries.find((s) => s.engagement)?.engagement;
 
   return {
     updatedAt: new Date().toISOString(),
@@ -40,6 +47,7 @@ export async function gatherKpis(brand: Brand, log: Logger): Promise<BrandKpis> 
     refresh,
     topQueries,
     summary,
+    ...(engagement ? { engagement } : {}),
   };
 }
 
